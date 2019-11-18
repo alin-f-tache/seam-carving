@@ -111,6 +111,8 @@ int main(int argc, char* argv[]) {
 			/*
 			=======================================================================================
 			Determinam seam-ul vertical ce trebuie eliminat
+
+			XXXX: Nu merge fiindca e abordare greedy, trebuie programare dinamica.
 			*/
 			min_energy = 400000;
 			for (j = 0; j < w; j++)
@@ -122,23 +124,26 @@ int main(int argc, char* argv[]) {
 			for (i = 1; i < h; i++) {
 				min_energy = 400000;
 				if (vertical_seam[i - 1] == 0) {
-					for (j = 0; j < 2; j++)
+					for (j = 0; j < 2; j++) {
 						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
 							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
 							vertical_seam[i] = vertical_seam[i - 1] + j;
 						}
+					}
 				} else if (vertical_seam[i - 1] == w - 1) {
-					for (j = -1; j < 1; j++)
+					for (j = -1; j < 1; j++) {
 						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
 							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
 							vertical_seam[i] = vertical_seam[i - 1] + j;
 						}
+					}
 				} else {
-					for (j = -1; j < 2; j++)
+					for (j = -1; j < 2; j++) {
 						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
 							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
 							vertical_seam[i] = vertical_seam[i - 1] + j;
 						}
+					}
 				}
 			}
 
@@ -154,7 +159,7 @@ int main(int argc, char* argv[]) {
 			for (i = 0; i < h; i++) {
 				pixel *new_line = malloc(w * sizeof(pixel));
 				int skipped = 0;
-				for (j = 0; j < w - 1; j++) {
+				for (j = 0; j < w; j++) {
 					if (vertical_seam[i] == j)
 						skipped = 1;
 					else
