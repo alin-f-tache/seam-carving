@@ -151,10 +151,9 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Eliminam seam-ul vertical si scadem latimea imaginii
 			*/
-			
-				for (i = 0; i < h; i++)
-					printf("%d ", vertical_seam[i]);
-			printf("\n");
+			/*for (i = 0; i < h; i++)
+				printf("%d ", vertical_seam[i]);
+			printf("\n");*/
 
 			for (i = 0; i < h; i++) {
 				pixel *new_line = malloc(w * sizeof(pixel));
