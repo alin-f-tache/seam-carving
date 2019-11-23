@@ -12,7 +12,17 @@ typedef struct {
 	unsigned char b;
 } pixel;
 
-long dual_gradient_energy(pixel p1x, pixel p2x, pixel p1y, pixel p2y) {
+long long min2(long long l1, long long l2) {
+	if (l1 < l2)
+		return l1;
+	return l2;
+}
+
+long long min3(long long l1, long long l2, long long l3) {
+	return min2(l1, min2(l2, l3));
+}
+
+long long dual_gradient_energy(pixel p1x, pixel p2x, pixel p1y, pixel p2y) {
 	/*
 	Functie care calculeaza energia unui pixel in functie de vecinii sai:
 	p1x, p2x - vecinii din stanga si din dreapta sa
@@ -28,8 +38,8 @@ long dual_gradient_energy(pixel p1x, pixel p2x, pixel p1y, pixel p2y) {
 	ydif.g = abs(p1y.g - p2y.g);
 	ydif.b = abs(p1y.b - p2y.b);
 
-	long xgrad = xdif.r * xdif.r + xdif.g * xdif.g + xdif.b * xdif.b;
-	long ygrad = ydif.r * ydif.r + ydif.g * ydif.g + ydif.b * ydif.b;
+	long long xgrad = xdif.r * xdif.r + xdif.g * xdif.g + xdif.b * xdif.b;
+	long long ygrad = ydif.r * ydif.r + ydif.g * ydif.g + ydif.b * ydif.b;
 
 	return xgrad + ygrad;
 }
@@ -63,8 +73,6 @@ int main(int argc, char* argv[]) {
 	*/
 	if (strcmp(argv[3], "width") == 0) {
 		int to_be_removed = atoi(argv[4]);
-		int vertical_seam[h];
-		long min_energy;
 
 		for (k = 0; k < to_be_removed; k++) {
 
@@ -72,10 +80,10 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Calculam energia fiecarui pixel
 			*/
-			long energy_matrix[h][w];
+			long long energy_matrix[h][w];
 
-			for (i = 0; i < 4; i++) {
-				for (j = 0; j < 3; j++) {
+			for (i = 0; i < h; i++)
+				for (j = 0; j < w; j++) {
 					long energy;
 					/* 
 					Colturi
@@ -106,43 +114,57 @@ int main(int argc, char* argv[]) {
 						energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
 					energy_matrix[i][j] = energy;
 				}
-			}
+
+
+			/*
+			=======================================================================================
+			Determinam energiile seam-urilor prin programare dinamica
+			*/
+			long long dp[h][w];
+			int vertical_seam[h];
+			long long min_energy;
+
+			for (i = 1; i < h; i++)
+				for (j = 0; j < w; j++)
+					if (j == 0)
+						dp[i][j] = energy_matrix[i][j] + min2(dp[i - 1][j], dp[i - 1][j + 1]);
+					else if (j == w - 1)
+						dp[i][j] = energy_matrix[i][j] + min2(dp[i - 1][j - 1], dp[i - 1][j]);
+					else
+						dp[i][j] = energy_matrix[i][j] + min3(dp[i - 1][j - 1], dp[i - 1][j], dp[i - 1][j + 1]);
 
 			/*
 			=======================================================================================
 			Determinam seam-ul vertical ce trebuie eliminat
-
-			XXXX: Nu merge fiindca e abordare greedy, trebuie programare dinamica.
 			*/
-			min_energy = 400000;
+			min_energy = dp[h - 1][0];
 			for (j = 0; j < w; j++)
-				if (energy_matrix[0][j] < min_energy) {
-					min_energy = energy_matrix[0][j];
-					vertical_seam[0] = j;
+				if (dp[h - 1][j] < min_energy) {
+					min_energy = dp[h - 1][j];
+					vertical_seam[h - 1] = j;
 				}
 
-			for (i = 1; i < h; i++) {
-				min_energy = 400000;
-				if (vertical_seam[i - 1] == 0) {
-					for (j = 0; j < 2; j++) {
-						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
-							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
-							vertical_seam[i] = vertical_seam[i - 1] + j;
-						}
+			for (i = h - 2; i >= 0; i--) {
+				long long remaining = dp[i + 1][vertical_seam[i + 1]] - energy_matrix[i + 1][vertical_seam[i + 1]];
+				if (vertical_seam[i + 1] == 0) {
+					if (dp[i][vertical_seam[i + 1]] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1];
+					} else if (dp[i][vertical_seam[i + 1] + 1] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1] + 1;
 					}
-				} else if (vertical_seam[i - 1] == w - 1) {
-					for (j = -1; j < 1; j++) {
-						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
-							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
-							vertical_seam[i] = vertical_seam[i - 1] + j;
-						}
+				} else if (vertical_seam[i + 1] == w - 1) {
+					if (dp[i][vertical_seam[i + 1] - 1] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1] - 1;
+					} else if (dp[i][vertical_seam[i + 1]] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1];
 					}
 				} else {
-					for (j = -1; j < 2; j++) {
-						if (energy_matrix[i][vertical_seam[i - 1] + j] < min_energy) {
-							min_energy = energy_matrix[i][vertical_seam[i - 1] + j];
-							vertical_seam[i] = vertical_seam[i - 1] + j;
-						}
+					if (dp[i][vertical_seam[i + 1] - 1] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1] - 1;
+					} else if (dp[i][vertical_seam[i + 1]] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1];
+					} else if (dp[i][vertical_seam[i + 1] + 1] == remaining) {
+						vertical_seam[i] = vertical_seam[i + 1] + 1;
 					}
 				}
 			}
@@ -156,7 +178,7 @@ int main(int argc, char* argv[]) {
 			printf("\n");*/
 
 			for (i = 0; i < h; i++) {
-				pixel *new_line = malloc(w * sizeof(pixel));
+				pixel *new_line = malloc((w - 1) * sizeof(pixel));
 				int skipped = 0;
 				for (j = 0; j < w; j++) {
 					if (vertical_seam[i] == j)
