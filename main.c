@@ -80,7 +80,9 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Calculam energia fiecarui pixel
 			*/
-			long long energy_matrix[h][w];
+			long **energy_matrix = malloc(h * sizeof(long *));
+			for (i = 0; i < h; i++)
+				energy_matrix[i] = malloc(w * sizeof(long));
 
 			for (i = 0; i < h; i++)
 				for (j = 0; j < w; j++) {
@@ -88,8 +90,9 @@ int main(int argc, char* argv[]) {
 					/* 
 					Colturi
 					*/
-					if (i == 0 && j == 0)
+					if (i == 0 && j == 0) {
 						energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+					}
 					else if (i == 0 && j == w - 1)
 						energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[h - 1][j], color_mat[i + 1][j]);
 					else if (i == h - 1 && j == 0)
@@ -120,9 +123,11 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Determinam energiile seam-urilor prin programare dinamica
 			*/
-			long long dp[h][w];
+			long **dp = malloc(h * sizeof(long *));
+			for (i = 0; i < h; i++)
+				dp[i] = malloc(w * sizeof(long));
 			int vertical_seam[h];
-			long long min_energy;
+			long min_energy;
 
 			for (i = 1; i < h; i++)
 				for (j = 0; j < w; j++)
@@ -145,7 +150,7 @@ int main(int argc, char* argv[]) {
 				}
 
 			for (i = h - 2; i >= 0; i--) {
-				long long remaining = dp[i + 1][vertical_seam[i + 1]] - energy_matrix[i + 1][vertical_seam[i + 1]];
+				long remaining = dp[i + 1][vertical_seam[i + 1]] - energy_matrix[i + 1][vertical_seam[i + 1]];
 				if (vertical_seam[i + 1] == 0) {
 					if (dp[i][vertical_seam[i + 1]] == remaining) {
 						vertical_seam[i] = vertical_seam[i + 1];
@@ -190,6 +195,13 @@ int main(int argc, char* argv[]) {
 				color_mat[i] = new_line;
 			}
 			w -= 1;
+
+			for (i = 0; i < h; i++) {
+				free(energy_matrix[i]);
+				free(dp[i]);
+			}
+			free(energy_matrix);
+			free(dp);
 		}
 	}
 
