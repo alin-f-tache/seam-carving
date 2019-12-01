@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <mpi.h>
 
 typedef struct {
 	/*
@@ -160,29 +161,57 @@ int *determine_min_seam(int h, int w, long **dp) {
 int main(int argc, char* argv[]) {
 	/*
 	===============================================================================================
+	Initializare MPI
+	*/
+	int rank;
+	int nProcesses;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &nProcesses);
+	MPI_Status st;
+
+	/*
+	===============================================================================================
 	Citire fisier de intrare
 	*/
 	unsigned int w, h, maxval;
 	int i, j, k;
+	long file_pos;
 
-	FILE *f = fopen(argv[1], "r");
-	fscanf(f, "P6\n");
-	fscanf(f, "%d %d\n", &w, &h);
-	fscanf(f, "%d\n", &maxval);
+	if (rank == 0) {
+		FILE *f = fopen(argv[1], "r");
+		fscanf(f, "P6\n");
+		fscanf(f, "%d %d\n", &w, &h);
+		fscanf(f, "%d\n", &maxval);
+		file_pos = ftell(f);
+		fclose(f);
+	}
+
+	MPI_Bcast(&h, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&w, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	pixel **color_mat = malloc(h * sizeof(pixel *));
 	for (i = 0; i < h; i++)
 		color_mat[i] = malloc(w * sizeof(pixel));
 
-	for (i = 0; i < h; i++)
-		fread(color_mat[i], 3 * w, 1, f);
-	fclose(f);
+	if (rank == 0) {
+		FILE *f = fopen(argv[1], "r");
+		fseek(f, file_pos, SEEK_SET);
+		for (i = 0; i < h; i++)
+			fread(color_mat[i], 3 * w, 1, f);
+		fclose(f);
+	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	int local_h = h / nProcesses;
+	int rest = h - local_h * nProcesses;
 
 	/*
 	===============================================================================================
 	Reducem latimea sau inaltimea imaginii
 	*/
-	if (strcmp(argv[3], "width") == 0) {
+	if (rank == 0 && strcmp(argv[3], "width") == 0) {
 		int to_be_removed = atoi(argv[4]);
 
 		for (k = 0; k < to_be_removed; k++) {
@@ -241,16 +270,20 @@ int main(int argc, char* argv[]) {
 	===============================================================================================
 	Scriere fisier de output
 	*/
-	f = fopen(argv[2], "w");
+	if (rank == 0) {
+		FILE *f = fopen(argv[2], "w");
 
-	fprintf(f, "P6\n%d %d\n%d\n", w, h, maxval);
-	for (i = 0; i < h; i++)
-		fwrite(color_mat[i], 3 * w, 1, f);
-	fclose(f);
+		fprintf(f, "P6\n%d %d\n%d\n", w, h, maxval);
+		for (i = 0; i < h; i++)
+			fwrite(color_mat[i], 3 * w, 1, f);
+		fclose(f);
+	}
 
 	for (i = 0; i < h; i++)
 		free(color_mat[i]);
 	free(color_mat);
+
+	MPI_Finalize();
 
 	return 0;
 }
