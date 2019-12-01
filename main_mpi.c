@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <mpi.h>
 
 typedef struct {
 	/*
@@ -46,7 +47,7 @@ long dual_gradient_energy(pixel p1x, pixel p2x, pixel p1y, pixel p2y) {
 	return xgrad + ygrad;
 }
 
-long **generate_energy_matrix(int h, int w, pixel **color_mat) {
+long **generate_energy_matrix(int rank, int local_h, int rest, int h, int w, pixel **color_mat) {
 	/*
 	===============================================================================================
 	Functie care genereaza matricea cu energiile fiecarui pixel
@@ -56,7 +57,7 @@ long **generate_energy_matrix(int h, int w, pixel **color_mat) {
 	for (i = 0; i < h; i++)
 		energy_matrix[i] = malloc(w * sizeof(long));
 
-	for (i = 0; i < h; i++)
+	for (i = rank * local_h; i < (rank + 1) * local_h; i++)
 		for (j = 0; j < w; j++) {
 			long energy;
 			/* 
@@ -89,6 +90,47 @@ long **generate_energy_matrix(int h, int w, pixel **color_mat) {
 				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
 			energy_matrix[i][j] = energy;
 		}
+
+	/*
+	===============================================================================================
+	Daca matricea nu a fost distribuita in mod egal, procesul 0 calculeaza restul liniilor
+	*/
+
+	if (rest != 0 && rank == 0)
+		for (i = h - rest; i < h; i++)
+			for (j = 0; j < w; j++) {
+				long energy;
+				/* 
+				Colturi
+				*/
+				if (i == 0 && j == 0) {
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+				}
+				else if (i == 0 && j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[h - 1][j], color_mat[i + 1][j]);
+				else if (i == h - 1 && j == 0)
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
+				else if (i == h - 1 && j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[0][j]);
+				/*
+				Margini
+				*/
+				else if (i == 0)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+				else if (i == h - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
+				else if (j == 0)
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
+				else if (j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[i + 1][j]);
+				/*
+				Interior
+				*/
+				else
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
+				energy_matrix[i][j] = energy;
+			}
+
 	return energy_matrix;
 }
 
@@ -160,23 +202,60 @@ int *determine_min_seam(int h, int w, long **dp) {
 int main(int argc, char* argv[]) {
 	/*
 	===============================================================================================
+	Initializare MPI
+	*/
+	int rank;
+	int nProcesses;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &nProcesses);
+	MPI_Status st;
+
+	/*
+	===============================================================================================
 	Citire fisier de intrare
 	*/
 	unsigned int w, h, maxval;
 	int i, j, k;
+	long file_pos;
 
-	FILE *f = fopen(argv[1], "r");
-	fscanf(f, "P6\n");
-	fscanf(f, "%d %d\n", &w, &h);
-	fscanf(f, "%d\n", &maxval);
+	if (rank == 0) {
+		FILE *f = fopen(argv[1], "r");
+		fscanf(f, "P6\n");
+		fscanf(f, "%d %d\n", &w, &h);
+		fscanf(f, "%d\n", &maxval);
+		file_pos = ftell(f);
+		fclose(f);
+	}
+
+	/*
+	=======================================================================================
+	Procesul 0 trimite datele necesare celorlalte procese
+	*/
+	MPI_Bcast(&h, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&w, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	pixel **color_mat = malloc(h * sizeof(pixel *));
 	for (i = 0; i < h; i++)
 		color_mat[i] = malloc(w * sizeof(pixel));
 
+	if (rank == 0) {
+		FILE *f = fopen(argv[1], "r");
+		fseek(f, file_pos, SEEK_SET);
+		for (i = 0; i < h; i++)
+			fread(color_mat[i], 3 * w, 1, f);
+		fclose(f);
+	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	/*
+	=======================================================================================
+	Procesul 0 trimite datele necesare celorlalte procese
+	*/
 	for (i = 0; i < h; i++)
-		fread(color_mat[i], 3 * w, 1, f);
-	fclose(f);
+		MPI_Bcast(color_mat[i], 3 * w, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	/*
 	===============================================================================================
@@ -186,24 +265,43 @@ int main(int argc, char* argv[]) {
 		int to_be_removed = atoi(argv[4]);
 
 		for (k = 0; k < to_be_removed; k++) {
-
 			/*
 			=======================================================================================
 			Calculam energia fiecarui pixel
-			*/			
-			long **energy_matrix = generate_energy_matrix(h, w, color_mat);
+			Fiecare proces isi face doar partea lui de imagine
+			*/
+			int local_h = h / nProcesses;
+			int rest = h - local_h * nProcesses;
+			long **energy_matrix = generate_energy_matrix(rank, local_h, rest, h, w, color_mat);
+			MPI_Barrier(MPI_COMM_WORLD);
 
+			if (rank != 0) {
+				for (i = rank * local_h; i < (rank + 1) * local_h; i++)
+					MPI_Ssend(energy_matrix[i], w, MPI_LONG, 0, 0, MPI_COMM_WORLD);
+			} else {
+				for (i = local_h; i < h - rest; i++)
+					MPI_Recv(energy_matrix[i], w, MPI_LONG, i / local_h, 0, MPI_COMM_WORLD, &st);
+			}
+			MPI_Barrier(MPI_COMM_WORLD);
+			
 			/*
 			=======================================================================================
 			Determinam energiile seam-urilor prin programare dinamica
 			*/
-			long **dp = generate_seam_energies(h, w, energy_matrix);
+			long **dp;
+			if (rank == 0)
+				dp = generate_seam_energies(h, w, energy_matrix);
 
 			/*
 			=======================================================================================
 			Determinam seam-ul vertical ce trebuie eliminat
 			*/
-			int *vertical_seam = determine_min_seam(h, w, dp);
+			int *vertical_seam = malloc(h * sizeof(int));
+			if (rank == 0)
+				vertical_seam = determine_min_seam(h, w, dp);
+
+			MPI_Bcast(vertical_seam, h, MPI_INT, 0, MPI_COMM_WORLD);
+			MPI_Barrier(MPI_COMM_WORLD);
 
 			/*
 			=======================================================================================
@@ -227,13 +325,17 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Clean-up
 			*/
-			free(vertical_seam);
 			for (i = 0; i < h; i++) {
 				free(energy_matrix[i]);
-				free(dp[i]);
 			}
 			free(energy_matrix);
-			free(dp);
+
+			if (rank == 0) {
+				free(vertical_seam);
+				for (i = 0; i < h; i++)
+					free(dp[i]);
+				free(dp);
+			}
 		}
 	}
 
@@ -241,16 +343,20 @@ int main(int argc, char* argv[]) {
 	===============================================================================================
 	Scriere fisier de output
 	*/
-	f = fopen(argv[2], "w");
+	if (rank == 0) {
+		FILE *f = fopen(argv[2], "w");
 
-	fprintf(f, "P6\n%d %d\n%d\n", w, h, maxval);
-	for (i = 0; i < h; i++)
-		fwrite(color_mat[i], 3 * w, 1, f);
-	fclose(f);
+		fprintf(f, "P6\n%d %d\n255\n", w, h);
+		for (i = 0; i < h; i++)
+			fwrite(color_mat[i], 3 * w, 1, f);
+		fclose(f);
+	}
 
 	for (i = 0; i < h; i++)
 		free(color_mat[i]);
 	free(color_mat);
+
+	MPI_Finalize();
 
 	return 0;
 }
