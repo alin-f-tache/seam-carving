@@ -213,19 +213,22 @@ int main(int argc, char* argv[]) {
 			for (i = 0; i < h; i++)
 				energy_matrix[i] = malloc(w * sizeof(long));		
 			
-			
-  
-    		// Let us create three threads 
+			/*
+			=======================================================================================
+			Fiecare thread calculeaza o portiune de imagine
+			*/
    		 	for (l = 0; l < N; l++) 
 				pthread_create(&threads[l], NULL, t_generate_energy_matrix, (void *)(&vec[l])); 
 			
 			for (l = 0; l < N; l++)  
-        		pthread_join(threads[l], NULL); 
+        		pthread_join(threads[l], NULL);
+
 			/*
 			=======================================================================================
 			Determinam energiile seam-urilor prin programare dinamica
 			*/
 			long **dp = generate_seam_energies();
+			
 			/*
 			=======================================================================================
 			Determinam seam-ul vertical ce trebuie eliminat

@@ -277,10 +277,10 @@ int main(int argc, char* argv[]) {
 
 			if (rank != 0) {
 				for (i = rank * local_h; i < (rank + 1) * local_h; i++)
-					MPI_Ssend(energy_matrix[i], w, MPI_LONG, 0, 0, MPI_COMM_WORLD);
+					MPI_Send(energy_matrix[i], w, MPI_LONG, 0, i, MPI_COMM_WORLD);
 			} else {
 				for (i = local_h; i < h - rest; i++)
-					MPI_Recv(energy_matrix[i], w, MPI_LONG, i / local_h, 0, MPI_COMM_WORLD, &st);
+					MPI_Recv(energy_matrix[i], w, MPI_LONG, i / local_h, i, MPI_COMM_WORLD, &st);
 			}
 			MPI_Barrier(MPI_COMM_WORLD);
 			

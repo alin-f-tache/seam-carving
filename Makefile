@@ -3,7 +3,7 @@ build:
 	mpicc main_mpi.c -o main_mpi
 	gcc main_pthread.c -o main_pthread -lpthread  
 	gcc main_omp.c -o main_omp -fopenmp
-	gcc main_hibrid.c -o main_hibrid -lpthread -fopenmp
+	mpicc main_hibrid.c -o main_hibrid -fopenmp
 
 run:
 	time ./main img/image-06.pnm img/out.pnm width 500
@@ -18,7 +18,7 @@ run_omp:
 	time ./main_omp img/image-06.pnm img/out3.pnm width 500
 
 run_hibrid:
-	time ./main_hibrid img/image06.pnm img/out4.pnm width 500
+	time mpirun -np 4 ./main_hibrid img/image-06.pnm img/out4.pnm width 500
 
 clean:
-	rm main main_mpi main_pthread main_omp main_hibrid
+	rm main main_mpi main_pthread main_omp main_hibrid img/out*
