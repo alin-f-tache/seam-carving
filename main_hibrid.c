@@ -4,7 +4,6 @@
 #include <math.h>
 #include <unistd.h> 
 #include <pthread.h>
-#include <omp.h>
 
 typedef struct {
 	/*
@@ -15,11 +14,10 @@ typedef struct {
 	unsigned char g;
 	unsigned char b;
 } pixel;
-unsigned int w, h;
 
+unsigned int w, h;
 pixel **color_mat;
 long **energy_matrix;
-long **dp;
 
 int N = 4; //Numar de Thread-uri
 
@@ -72,7 +70,8 @@ void* t_generate_energy_matrix(void* arg) {
 	}
 	
 	
-	#pragma omp parallel for shared(energy_matrix,color_mat,min_h,max_h,w) private(j,energy)	
+	#pragma omp parallel for shared(energy_matrix) private(j,energy)
+	
 	for (i = min_h; i < max_h; i++)
 		for (j = 0; j < w; j++) {
 			
@@ -109,22 +108,17 @@ void* t_generate_energy_matrix(void* arg) {
 	
 }
 
-void* t_generate_seam_energies(void* arg) {
+long **generate_seam_energies() {
 	/*
 	===============================================================================================
 	Functie care genereaza energiile tuturor seam-urilor prin programare dinamica
 	*/
-	int i, j, min_h, max_h;
-	int a = *((int *)arg);
-	min_h = (a) * h / N ;
-	if((a) == N - 1){
-		max_h = h-1;
-	} else {
-		max_h = ((a)+1) * h / N ;
-	}
-	
-	//#pragma omp parallel for shared(energy_matrix,dp,min_h,max_h,w) private(j)
-	for (i = min_h + 1; i <= max_h; i++)
+	int i, j;
+	long **dp = malloc(h * sizeof(long *));
+	for (i = 0; i < h; i++)
+		dp[i] = malloc(w * sizeof(long));
+
+	for (i = 1; i < h; i++)
 		for (j = 0; j < w; j++)
 			if (j == 0)
 				dp[i][j] = energy_matrix[i][j] + min2(dp[i - 1][j], dp[i - 1][j + 1]);
@@ -133,7 +127,7 @@ void* t_generate_seam_energies(void* arg) {
 			else
 				dp[i][j] = energy_matrix[i][j] + min3(dp[i - 1][j - 1], dp[i - 1][j], dp[i - 1][j + 1]);
 
-	
+	return dp;
 }
 
 int *determine_min_seam(int h, int w, long **dp) {
@@ -186,8 +180,8 @@ int main(int argc, char* argv[]) {
 	*/
 	unsigned int maxval;
 	int i, j, k, l;
-	pthread_t threads[4];
-	int vec[4];
+	pthread_t  *threads = malloc(N*sizeof(pthread_t));
+	int *vec = malloc(N*sizeof(int));
 	for(l = 0; l < N; l++){
 		vec[l] = l;
 	}
@@ -220,11 +214,10 @@ int main(int argc, char* argv[]) {
 			energy_matrix = malloc(h * sizeof(long *));
 			for (i = 0; i < h; i++)
 				energy_matrix[i] = malloc(w * sizeof(long));		
+			
+			
   
-    		/*
-			=======================================================================================
-			Cream thread-uri
-			*/
+    		// Let us create three threads 
    		 	for (l = 0; l < N; l++) 
 				pthread_create(&threads[l], NULL, t_generate_energy_matrix, (void *)(&vec[l])); 
 			
@@ -234,15 +227,7 @@ int main(int argc, char* argv[]) {
 			=======================================================================================
 			Determinam energiile seam-urilor prin programare dinamica
 			*/
-			dp = malloc(h * sizeof(long *));
-			for (i = 0; i < h; i++)
-				dp[i] = malloc(w * sizeof(long));
-
-			for (l = 0; l < N; l++) 
-        		pthread_create(&threads[l], NULL, t_generate_seam_energies, (void *)(&vec[l])); 
-			
-			for (l = 0; l < N; l++)  
-        		pthread_join(threads[l], NULL);
+			long **dp = generate_seam_energies();
 
 			/*
 			=======================================================================================

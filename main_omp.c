@@ -58,39 +58,40 @@ long **generate_energy_matrix(int h, int w, pixel **color_mat) {
 	for (i = 0; i < h; i++)
 		energy_matrix[i] = malloc(w * sizeof(long));
 
-	#pragma omp parallel for shared(energy_matrix,color_mat,h,w) private(j,energy)	
-	for (i = 0; i < h; i++)
-		for (j = 0; j < w; j++) {
-			
-			/* 
-			Colturi
-			*/
-			if (i == 0 && j == 0) {
-				energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+	#pragma omp parallel for shared(energy_matrix) private(j,energy)
+		for (i = 0; i < h; i++){
+			for (j = 0; j < w; j++) {
+				
+				/* 
+				Colturi
+				*/
+				if (i == 0 && j == 0) {
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+				}
+				else if (i == 0 && j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[h - 1][j], color_mat[i + 1][j]);
+				else if (i == h - 1 && j == 0)
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
+				else if (i == h - 1 && j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[0][j]);
+				/*
+				Margini
+				*/
+				else if (i == 0)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
+				else if (i == h - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
+				else if (j == 0)
+					energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
+				else if (j == w - 1)
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[i + 1][j]);
+				/*
+				Interior
+				*/
+				else
+					energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
+				energy_matrix[i][j] = energy;
 			}
-			else if (i == 0 && j == w - 1)
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[h - 1][j], color_mat[i + 1][j]);
-			else if (i == h - 1 && j == 0)
-				energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
-			else if (i == h - 1 && j == w - 1)
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[0][j]);
-			/*
-			Margini
-			*/
-			else if (i == 0)
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[h - 1][j], color_mat[i + 1][j]);
-			else if (i == h - 1)
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[0][j]);
-			else if (j == 0)
-				energy = dual_gradient_energy(color_mat[i][w - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
-			else if (j == w - 1)
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][0], color_mat[i - 1][j], color_mat[i + 1][j]);
-			/*
-			Interior
-			*/
-			else
-				energy = dual_gradient_energy(color_mat[i][j - 1], color_mat[i][j + 1], color_mat[i - 1][j], color_mat[i + 1][j]);
-			energy_matrix[i][j] = energy;
 		}
 	return energy_matrix;
 }
@@ -104,8 +105,6 @@ long **generate_seam_energies(int h, int w, long **energy_matrix) {
 	long **dp = malloc(h * sizeof(long *));
 	for (i = 0; i < h; i++)
 		dp[i] = malloc(w * sizeof(long));
-
-	//#pragma omp parallel for shared(energy_matrix,dp,h,w) private(j)	
 	for (i = 1; i < h; i++)
 		for (j = 0; j < w; j++)
 			if (j == 0)
