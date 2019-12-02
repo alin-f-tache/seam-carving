@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
 #include <pthread.h> 
+
 typedef struct {
 	/*
+	===============================================================================================
 	Structura de pixel
 	*/
 	unsigned char r;
@@ -179,8 +180,6 @@ int main(int argc, char* argv[]) {
 	===============================================================================================
 	Citire fisier de intrare
 	*/
-
-	unsigned char type;
 	unsigned int maxval;
 	int i, j, k, l;
 	pthread_t threads[4];
@@ -218,9 +217,10 @@ int main(int argc, char* argv[]) {
 			for (i = 0; i < h; i++)
 				energy_matrix[i] = malloc(w * sizeof(long));		
 			
-			
-  
-    		// Let us create three threads 
+			/*
+			=======================================================================================
+			Cream thread-uri
+			*/
    		 	for (l = 0; l < N; l++) 
 				pthread_create(&threads[l], NULL, t_generate_energy_matrix, (void *)(&vec[l])); 
 			

@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
 #include <unistd.h> 
-#include <pthread.h> 
+#include <pthread.h>
+#include <omp.h>
+
 typedef struct {
 	/*
+	===============================================================================================
 	Structura de pixel
 	*/
 	unsigned char r;
@@ -70,8 +72,7 @@ void* t_generate_energy_matrix(void* arg) {
 	}
 	
 	
-	#pragma omp parallel for shared(energy_matrix,color_mat,min_h,max_h,w) private(i,j,energy)
-	
+	#pragma omp parallel for shared(energy_matrix,color_mat,min_h,max_h,w) private(j,energy)	
 	for (i = min_h; i < max_h; i++)
 		for (j = 0; j < w; j++) {
 			
@@ -121,7 +122,8 @@ void* t_generate_seam_energies(void* arg) {
 	} else {
 		max_h = ((a)+1) * h / N ;
 	}
-	#pragma omp parallel for shared(energy_matrix,dp,min_h,max_h,w) private(i,j)
+	
+	//#pragma omp parallel for shared(energy_matrix,dp,min_h,max_h,w) private(j)
 	for (i = min_h + 1; i <= max_h; i++)
 		for (j = 0; j < w; j++)
 			if (j == 0)
@@ -182,8 +184,6 @@ int main(int argc, char* argv[]) {
 	===============================================================================================
 	Citire fisier de intrare
 	*/
-
-	unsigned char type;
 	unsigned int maxval;
 	int i, j, k, l;
 	pthread_t threads[4];

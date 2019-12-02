@@ -57,8 +57,8 @@ long **generate_energy_matrix(int h, int w, pixel **color_mat) {
 	long energy;
 	for (i = 0; i < h; i++)
 		energy_matrix[i] = malloc(w * sizeof(long));
-	#pragma omp parallel for shared(energy_matrix,color_mat,h,w) private(i,j,energy)
-	
+
+	#pragma omp parallel for shared(energy_matrix,color_mat,h,w) private(j,energy)	
 	for (i = 0; i < h; i++)
 		for (j = 0; j < w; j++) {
 			
@@ -104,8 +104,8 @@ long **generate_seam_energies(int h, int w, long **energy_matrix) {
 	long **dp = malloc(h * sizeof(long *));
 	for (i = 0; i < h; i++)
 		dp[i] = malloc(w * sizeof(long));
-	#pragma omp parallel for shared(energy_matrix,dp,h,w) private(i,j)
-	
+
+	//#pragma omp parallel for shared(energy_matrix,dp,h,w) private(j)	
 	for (i = 1; i < h; i++)
 		for (j = 0; j < w; j++)
 			if (j == 0)
