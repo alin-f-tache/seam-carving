@@ -220,10 +220,11 @@ int main(int argc, char* argv[]) {
 			energy_matrix = malloc(h * sizeof(long *));
 			for (i = 0; i < h; i++)
 				energy_matrix[i] = malloc(w * sizeof(long));		
-			
-			
   
-    		// Let us create three threads 
+    		/*
+			=======================================================================================
+			Cream thread-uri
+			*/
    		 	for (l = 0; l < N; l++) 
 				pthread_create(&threads[l], NULL, t_generate_energy_matrix, (void *)(&vec[l])); 
 			
