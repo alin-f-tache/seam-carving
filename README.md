@@ -1,5 +1,5 @@
 # Seam Carving
-#### Tache Alin-Florian, Munteanu Sergiu-Adrian
+#### [Tache Alin-Florian, Munteanu Sergiu-Adrian]
 
 C implementation of the seam carving algorithm for content-aware image resizing.
 
